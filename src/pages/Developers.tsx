@@ -3,44 +3,21 @@ import type { Developer } from '@/features/developers/schemas';
 import { useState } from 'react';
 import { formatRUT } from '@/lib/rut';
 import DeveloperFormModal, { type DeveloperFormData } from '@/components/DeveloperFormModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/useToast';
+import { getDevelopers, saveDevelopers } from '@/lib/storage';
 
 export default function DevelopersPage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeveloper, setEditingDeveloper] = useState<Developer | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: number; isReactivate?: boolean }>({ isOpen: false });
   
-  // Datos de prueba
-  const [mockDevelopers, setMockDevelopers] = useState<Developer[]>([
-    {
-      codigoDesarrollador: 1,
-      nombre: 'Juan Pérez',
-      rut: '12345678-9',
-      correoElectronico: 'juan.perez@email.com',
-      fechaContratacion: '2023-01-15T00:00:00',
-      aniosExperiencia: 5,
-      registroActivo: true,
-    },
-    {
-      codigoDesarrollador: 2,
-      nombre: 'María González',
-      rut: '98765432-1',
-      correoElectronico: 'maria.gonzalez@email.com',
-      fechaContratacion: '2022-06-10T00:00:00',
-      aniosExperiencia: 3,
-      registroActivo: true,
-    },
-    {
-      codigoDesarrollador: 3,
-      nombre: 'Carlos López',
-      rut: '11223344-5',
-      correoElectronico: 'carlos.lopez@email.com',
-      fechaContratacion: '2021-03-20T00:00:00',
-      aniosExperiencia: 7,
-      registroActivo: false,
-    },
-  ]);
+  // Datos desde localStorage
+  const [mockDevelopers, setMockDevelopers] = useState<Developer[]>(() => getDevelopers());
 
   const developers = mockDevelopers;
 
@@ -60,14 +37,16 @@ export default function DevelopersPage() {
   };
 
   const handleSaveDeveloper = (formData: DeveloperFormData) => {
+    let updatedDevelopers: Developer[];
+    
     if (editingDeveloper) {
       // Editar existente
-      setMockDevelopers(prev => prev.map(d => d.codigoDesarrollador === editingDeveloper.codigoDesarrollador
+      updatedDevelopers = mockDevelopers.map(d => d.codigoDesarrollador === editingDeveloper.codigoDesarrollador
         ? { ...d, ...formData, fechaContratacion: formData.fechaContratacion + 'T00:00:00' }
         : d
-      ));
+      );
       setEditingDeveloper(null);
-      alert('¡Desarrollador actualizado exitosamente!');
+      addToast({ type: 'success', title: 'Desarrollador actualizado', message: 'El desarrollador se actualizó correctamente' });
     } else {
       // Crear nuevo
       const nextId = mockDevelopers.length ? Math.max(...mockDevelopers.map(d => d.codigoDesarrollador)) + 1 : 1;
@@ -78,10 +57,12 @@ export default function DevelopersPage() {
         registroActivo: true,
       };
 
-      setMockDevelopers(prev => [...prev, newDeveloper]);
-      alert('¡Desarrollador creado exitosamente!');
+      updatedDevelopers = [...mockDevelopers, newDeveloper];
+      addToast({ type: 'success', title: 'Desarrollador creado', message: 'El desarrollador se creó correctamente' });
     }
 
+    setMockDevelopers(updatedDevelopers);
+    saveDevelopers(updatedDevelopers);
     setIsModalOpen(false);
   };
 
@@ -93,10 +74,34 @@ export default function DevelopersPage() {
   const handleToggleActive = (id: number) => {
     const dev = mockDevelopers.find(d => d.codigoDesarrollador === id);
     if (!dev) return;
-    const confirmMsg = dev.registroActivo ? '¿Eliminar (activar soft) al desarrollador?' : '¿Reactivar al desarrollador?';
-    if (!window.confirm(confirmMsg)) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      id,
+      isReactivate: !dev.registroActivo
+    });
+  };
 
-    setMockDevelopers(prev => prev.map(d => d.codigoDesarrollador === id ? { ...d, registroActivo: !d.registroActivo } : d));
+  const handleConfirmToggle = () => {
+    if (!confirmModal.id) return;
+    
+    const updatedDevelopers = mockDevelopers.map(d => 
+      d.codigoDesarrollador === confirmModal.id 
+        ? { ...d, registroActivo: !d.registroActivo } 
+        : d
+    );
+    
+    setMockDevelopers(updatedDevelopers);
+    saveDevelopers(updatedDevelopers);
+    
+    const action = confirmModal.isReactivate ? 'reactivado' : 'desactivado';
+    addToast({
+      type: confirmModal.isReactivate ? 'success' : 'warning',
+      title: `Desarrollador ${action}`,
+      message: `El desarrollador ha sido ${action} correctamente`
+    });
+    
+    setConfirmModal({ isOpen: false });
   };
 
   const handleView = (id: number) => {
@@ -258,6 +263,20 @@ export default function DevelopersPage() {
           aniosExperiencia: editingDeveloper.aniosExperiencia,
         } : null}
         title={editingDeveloper ? 'Editar Desarrollador' : undefined}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false })}
+        onConfirm={handleConfirmToggle}
+        title={confirmModal.isReactivate ? 'Reactivar Desarrollador' : 'Desactivar Desarrollador'}
+        message={confirmModal.isReactivate 
+          ? '¿Está seguro que desea reactivar este desarrollador?' 
+          : '¿Está seguro que desea desactivar este desarrollador?'
+        }
+        confirmText={confirmModal.isReactivate ? 'Reactivar' : 'Desactivar'}
+        type={confirmModal.isReactivate ? 'info' : 'warning'}
       />
     </div>
   );

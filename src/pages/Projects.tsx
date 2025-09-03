@@ -2,45 +2,21 @@ import { Plus, Search, Eye, Edit, Trash2, RefreshCw, Users } from 'lucide-react'
 import type { Project } from '@/features/projects/schemas';
 import { useState } from 'react';
 import ProjectFormModal, { type ProjectFormData } from '@/components/ProjectFormModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/useToast';
+import { getProjects, saveProjects } from '@/lib/storage';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: number; isReactivate?: boolean }>({ isOpen: false });
   
-  // Datos de prueba
-  const [mockProjects, setMockProjects] = useState<Project[]>([
-    {
-      codigoProyecto: 1,
-      nombre: 'Sistema ERP Empresarial',
-      fechaInicio: '2024-01-15T00:00:00',
-      fechaTermino: '2024-12-15T00:00:00',
-      registroActivo: true,
-    },
-    {
-      codigoProyecto: 2,
-      nombre: 'App Mobile Banking',
-      fechaInicio: '2024-03-01T00:00:00',
-      fechaTermino: '2024-09-30T00:00:00',
-      registroActivo: true,
-    },
-    {
-      codigoProyecto: 3,
-      nombre: 'Portal E-commerce',
-      fechaInicio: '2023-06-10T00:00:00',
-      fechaTermino: '2024-02-28T00:00:00',
-      registroActivo: false,
-    },
-    {
-      codigoProyecto: 4,
-      nombre: 'Sistema de Inventario',
-      fechaInicio: '2024-05-20T00:00:00',
-      fechaTermino: '2024-11-20T00:00:00',
-      registroActivo: true,
-    },
-  ]);
+  // Datos desde localStorage
+  const [mockProjects, setMockProjects] = useState<Project[]>(() => getProjects());
 
   const projects = mockProjects;
 
@@ -79,14 +55,16 @@ export default function ProjectsPage() {
   };
 
   const handleCreateOrUpdateProject = (formData: ProjectFormData) => {
+    let updatedProjects: Project[];
+
     if (editingProject) {
       // Actualizar existente
-      setMockProjects(prev => prev.map(p => p.codigoProyecto === editingProject.codigoProyecto
+      updatedProjects = mockProjects.map(p => p.codigoProyecto === editingProject.codigoProyecto
         ? { ...p, ...formData, fechaInicio: formData.fechaInicio + 'T00:00:00', fechaTermino: formData.fechaTermino + 'T00:00:00' }
         : p
-      ));
+      );
       setEditingProject(null);
-      alert('¡Proyecto actualizado exitosamente!');
+      addToast({ type: 'success', title: 'Proyecto actualizado', message: 'El proyecto se actualizó correctamente' });
     } else {
       // Crear nuevo
       const nextId = mockProjects.length ? Math.max(...mockProjects.map(p => p.codigoProyecto)) + 1 : 1;
@@ -98,10 +76,12 @@ export default function ProjectsPage() {
         registroActivo: true,
       };
 
-      setMockProjects(prev => [...prev, newProject]);
-      alert('¡Proyecto creado exitosamente!');
+      updatedProjects = [...mockProjects, newProject];
+      addToast({ type: 'success', title: 'Proyecto creado', message: 'El proyecto se creó correctamente' });
     }
 
+    setMockProjects(updatedProjects);
+    saveProjects(updatedProjects);
     setIsModalOpen(false);
   };
 
@@ -113,10 +93,34 @@ export default function ProjectsPage() {
   const handleToggleActive = (id: number) => {
     const proj = mockProjects.find(p => p.codigoProyecto === id);
     if (!proj) return;
-    const confirmMsg = proj.registroActivo ? '¿Eliminar (soft delete) el proyecto?' : '¿Reactivar el proyecto?';
-    if (!window.confirm(confirmMsg)) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      id,
+      isReactivate: !proj.registroActivo
+    });
+  };
 
-    setMockProjects(prev => prev.map(p => p.codigoProyecto === id ? { ...p, registroActivo: !p.registroActivo } : p));
+  const handleConfirmToggle = () => {
+    if (!confirmModal.id) return;
+    
+    const updatedProjects = mockProjects.map(p => 
+      p.codigoProyecto === confirmModal.id 
+        ? { ...p, registroActivo: !p.registroActivo } 
+        : p
+    );
+    
+    setMockProjects(updatedProjects);
+    saveProjects(updatedProjects);
+    
+    const action = confirmModal.isReactivate ? 'reactivado' : 'desactivado';
+    addToast({
+      type: confirmModal.isReactivate ? 'success' : 'warning',
+      title: `Proyecto ${action}`,
+      message: `El proyecto ha sido ${action} correctamente`
+    });
+    
+    setConfirmModal({ isOpen: false });
   };
 
   const handleView = (id: number) => {
@@ -277,6 +281,20 @@ export default function ProjectsPage() {
           fechaTermino: editingProject.fechaTermino.replace('T00:00:00', ''),
         } : null}
         title={editingProject ? 'Editar Proyecto' : undefined}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false })}
+        onConfirm={handleConfirmToggle}
+        title={confirmModal.isReactivate ? 'Reactivar Proyecto' : 'Desactivar Proyecto'}
+        message={confirmModal.isReactivate 
+          ? '¿Está seguro que desea reactivar este proyecto?' 
+          : '¿Está seguro que desea desactivar este proyecto?'
+        }
+        confirmText={confirmModal.isReactivate ? 'Reactivar' : 'Desactivar'}
+        type={confirmModal.isReactivate ? 'info' : 'warning'}
       />
     </div>
   );
