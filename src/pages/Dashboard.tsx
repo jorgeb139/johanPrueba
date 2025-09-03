@@ -2,78 +2,24 @@ import { Link } from 'react-router-dom';
 import { Users, FolderOpen, Plus, Activity, Eye, TrendingUp } from 'lucide-react';
 import type { Developer } from '@/features/developers/schemas';
 import type { Project } from '@/features/projects/schemas';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/useToast';
+import { getDevelopers, getProjects, saveDevelopers, saveProjects } from '@/lib/storage';
 import DeveloperFormModal, { type DeveloperFormData } from '@/components/DeveloperFormModal';
 import ProjectFormModal, { type ProjectFormData } from '@/components/ProjectFormModal';
 
 export default function DashboardPage() {
+  const { addToast } = useToast();
   const [isDeveloperModalOpen, setIsDeveloperModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [developers, setDevelopers] = useState<Developer[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  // Datos de prueba - mismos que en las otras páginas
-  const [mockDevelopers, setMockDevelopers] = useState<Developer[]>([
-    {
-      codigoDesarrollador: 1,
-      nombre: 'Juan Pérez',
-      rut: '12345678-9',
-      correoElectronico: 'juan.perez@email.com',
-      fechaContratacion: '2023-01-15T00:00:00',
-      aniosExperiencia: 5,
-      registroActivo: true,
-    },
-    {
-      codigoDesarrollador: 2,
-      nombre: 'María González',
-      rut: '98765432-1',
-      correoElectronico: 'maria.gonzalez@email.com',
-      fechaContratacion: '2022-06-10T00:00:00',
-      aniosExperiencia: 3,
-      registroActivo: true,
-    },
-    {
-      codigoDesarrollador: 3,
-      nombre: 'Carlos López',
-      rut: '11223344-5',
-      correoElectronico: 'carlos.lopez@email.com',
-      fechaContratacion: '2021-03-20T00:00:00',
-      aniosExperiencia: 7,
-      registroActivo: false,
-    },
-  ]);
-
-  const [mockProjects, setMockProjects] = useState<Project[]>([
-    {
-      codigoProyecto: 1,
-      nombre: 'Sistema ERP Empresarial',
-      fechaInicio: '2024-01-15T00:00:00',
-      fechaTermino: '2024-12-15T00:00:00',
-      registroActivo: true,
-    },
-    {
-      codigoProyecto: 2,
-      nombre: 'App Mobile Banking',
-      fechaInicio: '2024-03-01T00:00:00',
-      fechaTermino: '2024-09-30T00:00:00',
-      registroActivo: true,
-    },
-    {
-      codigoProyecto: 3,
-      nombre: 'Portal E-commerce',
-      fechaInicio: '2023-06-10T00:00:00',
-      fechaTermino: '2024-02-28T00:00:00',
-      registroActivo: false,
-    },
-    {
-      codigoProyecto: 4,
-      nombre: 'Sistema de Inventario',
-      fechaInicio: '2024-05-20T00:00:00',
-      fechaTermino: '2024-11-20T00:00:00',
-      registroActivo: true,
-    },
-  ]);
-
-  const developers = mockDevelopers;
-  const projects = mockProjects;
+  // Cargar datos del localStorage al montar el componente
+  useEffect(() => {
+    setDevelopers(getDevelopers());
+    setProjects(getProjects());
+  }, []);
 
   const activeDevelopers = developers.filter(d => d.registroActivo);
   const activeProjects = projects.filter(p => p.registroActivo);
@@ -93,27 +39,31 @@ export default function DashboardPage() {
 
   const handleCreateDeveloper = (formData: DeveloperFormData) => {
     const newDeveloper: Developer = {
-      codigoDesarrollador: Math.max(...mockDevelopers.map(d => d.codigoDesarrollador)) + 1,
+      codigoDesarrollador: Math.max(0, ...developers.map(d => d.codigoDesarrollador)) + 1,
       ...formData,
       fechaContratacion: formData.fechaContratacion + 'T00:00:00',
       registroActivo: true,
     };
 
-    setMockDevelopers(prev => [...prev, newDeveloper]);
-    alert('¡Desarrollador creado exitosamente!');
+    const updatedDevelopers = [...developers, newDeveloper];
+    setDevelopers(updatedDevelopers);
+    saveDevelopers(updatedDevelopers);
+    addToast({ type: 'success', title: 'Desarrollador creado', message: '¡Desarrollador creado exitosamente!' });
   };
 
   const handleCreateProject = (formData: ProjectFormData) => {
     const newProject: Project = {
-      codigoProyecto: Math.max(...mockProjects.map(p => p.codigoProyecto)) + 1,
+      codigoProyecto: Math.max(0, ...projects.map(p => p.codigoProyecto)) + 1,
       ...formData,
       fechaInicio: formData.fechaInicio + 'T00:00:00',
       fechaTermino: formData.fechaTermino + 'T00:00:00',
       registroActivo: true,
     };
 
-    setMockProjects(prev => [...prev, newProject]);
-    alert('¡Proyecto creado exitosamente!');
+    const updatedProjects = [...projects, newProject];
+    setProjects(updatedProjects);
+    saveProjects(updatedProjects);
+    addToast({ type: 'success', title: 'Proyecto creado', message: '¡Proyecto creado exitosamente!' });
   };
 
   return (

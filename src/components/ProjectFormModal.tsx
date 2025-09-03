@@ -1,5 +1,8 @@
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
+import { projectSchema, type ProjectFormData } from '@/lib/validations';
 
 interface ProjectFormModalProps {
   isOpen: boolean;
@@ -9,66 +12,52 @@ interface ProjectFormModalProps {
   title?: string;
 }
 
-export interface ProjectFormData {
-  nombre: string;
-  fechaInicio: string;
-  fechaTermino: string;
-}
+export type { ProjectFormData };
 
-export default function ProjectFormModal({ isOpen, onClose, onSubmit, initialData = null, title }: ProjectFormModalProps) {
-  const [formData, setFormData] = useState<ProjectFormData>({
-    nombre: '',
-    fechaInicio: '',
-    fechaTermino: '',
+export default function ProjectFormModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  initialData = null, 
+  title 
+}: ProjectFormModalProps) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting }
+  } = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: {
+      nombre: '',
+      fechaInicio: '',
+      fechaTermino: '',
+    }
   });
 
-  // Sincronizar cuando se abre el modal en modo edición
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      reset({
+        nombre: initialData.nombre,
+        fechaInicio: initialData.fechaInicio.split('T')[0], // Solo la fecha para input date
+        fechaTermino: initialData.fechaTermino.split('T')[0], // Solo la fecha para input date
+      });
     } else {
-      setFormData({ nombre: '', fechaInicio: '', fechaTermino: '' });
+      reset({
+        nombre: '',
+        fechaInicio: '',
+        fechaTermino: '',
+      });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, reset]);
 
-  const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormData, string>>>({});
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validaciones básicas
-    const newErrors: Partial<Record<keyof ProjectFormData, string>> = {};
-    
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre del proyecto es requerido';
-    if (!formData.fechaInicio) newErrors.fechaInicio = 'La fecha de inicio es requerida';
-    if (!formData.fechaTermino) newErrors.fechaTermino = 'La fecha de término es requerida';
-    
-    // Validar que la fecha de término sea posterior a la de inicio
-    if (formData.fechaInicio && formData.fechaTermino) {
-      if (new Date(formData.fechaTermino) <= new Date(formData.fechaInicio)) {
-        newErrors.fechaTermino = 'La fecha de término debe ser posterior a la fecha de inicio';
-      }
-    }
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    onSubmit(formData);
-    setFormData({ nombre: '', fechaInicio: '', fechaTermino: '' });
-    setErrors({});
+  const onSubmitForm = (data: ProjectFormData) => {
+    onSubmit(data);
+    reset();
     onClose();
   };
 
-  const handleInputChange = (field: keyof ProjectFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -83,23 +72,23 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, initialDat
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmitForm)} className="p-6 space-y-4">
           <div>
             <label htmlFor="nombre" className="block text-sm font-medium text-slate-700 mb-2">
               Nombre del proyecto *
             </label>
             <input
+              {...register('nombre')}
               type="text"
               id="nombre"
-              value={formData.nombre}
-              onChange={(e) => handleInputChange('nombre', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.nombre ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.nombre ? 'border-red-500' : ''
               }`}
               placeholder="Ej: Sistema ERP Empresarial"
-              maxLength={50}
             />
-            {errors.nombre && <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>}
+            {errors.nombre && (
+              <p className="text-red-600 text-sm mt-1">{errors.nombre.message}</p>
+            )}
           </div>
 
           <div>
@@ -107,15 +96,16 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, initialDat
               Fecha de inicio *
             </label>
             <input
+              {...register('fechaInicio')}
               type="date"
               id="fechaInicio"
-              value={formData.fechaInicio}
-              onChange={(e) => handleInputChange('fechaInicio', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.fechaInicio ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.fechaInicio ? 'border-red-500' : ''
               }`}
             />
-            {errors.fechaInicio && <p className="mt-1 text-sm text-red-600">{errors.fechaInicio}</p>}
+            {errors.fechaInicio && (
+              <p className="text-red-600 text-sm mt-1">{errors.fechaInicio.message}</p>
+            )}
           </div>
 
           <div>
@@ -123,30 +113,32 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, initialDat
               Fecha de término *
             </label>
             <input
+              {...register('fechaTermino')}
               type="date"
               id="fechaTermino"
-              value={formData.fechaTermino}
-              onChange={(e) => handleInputChange('fechaTermino', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.fechaTermino ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.fechaTermino ? 'border-red-500' : ''
               }`}
             />
-            {errors.fechaTermino && <p className="mt-1 text-sm text-red-600">{errors.fechaTermino}</p>}
+            {errors.fechaTermino && (
+              <p className="text-red-600 text-sm mt-1">{errors.fechaTermino.message}</p>
+            )}
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              {title ?? 'Crear Proyecto'}
+              {isSubmitting ? 'Guardando...' : initialData ? 'Actualizar' : 'Crear'}
             </button>
           </div>
         </form>

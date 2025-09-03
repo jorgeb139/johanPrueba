@@ -1,5 +1,9 @@
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
+import { developerSchema, type DeveloperFormData } from '@/lib/validations';
+import { formatRUT } from '@/lib/rut';
 
 interface DeveloperFormModalProps {
   isOpen: boolean;
@@ -9,29 +13,47 @@ interface DeveloperFormModalProps {
   title?: string;
 }
 
-export interface DeveloperFormData {
-  nombre: string;
-  rut: string;
-  correoElectronico: string;
-  fechaContratacion: string;
-  aniosExperiencia: number;
-}
+export type { DeveloperFormData };
 
-export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialData = null, title }: DeveloperFormModalProps) {
-  const [formData, setFormData] = useState<DeveloperFormData>({
-    nombre: '',
-    rut: '',
-    correoElectronico: '',
-    fechaContratacion: '',
-    aniosExperiencia: 0,
+export default function DeveloperFormModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  initialData = null, 
+  title 
+}: DeveloperFormModalProps) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting }
+  } = useForm<DeveloperFormData>({
+    resolver: zodResolver(developerSchema),
+    defaultValues: {
+      nombre: '',
+      rut: '',
+      correoElectronico: '',
+      fechaContratacion: '',
+      aniosExperiencia: 0,
+    }
   });
 
-  // Sincronizar cuando cambia initialData (para modo edición)
+  // Observar el campo RUT para formateo en tiempo real
+  const rutValue = watch('rut');
+
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      reset({
+        nombre: initialData.nombre,
+        rut: initialData.rut,
+        correoElectronico: initialData.correoElectronico,
+        fechaContratacion: initialData.fechaContratacion.split('T')[0], // Solo la fecha para input date
+        aniosExperiencia: initialData.aniosExperiencia,
+      });
     } else {
-      setFormData({
+      reset({
         nombre: '',
         rut: '',
         correoElectronico: '',
@@ -39,47 +61,25 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
         aniosExperiencia: 0,
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, reset]);
 
-  const [errors, setErrors] = useState<Partial<Record<keyof DeveloperFormData, string>>>({});
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validaciones básicas
-    const newErrors: Partial<Record<keyof DeveloperFormData, string>> = {};
-    
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    if (!formData.rut.trim()) newErrors.rut = 'El RUT es requerido';
-    if (!formData.correoElectronico.trim()) newErrors.correoElectronico = 'El email es requerido';
-    if (!formData.fechaContratacion) newErrors.fechaContratacion = 'La fecha es requerida';
-    if (formData.aniosExperiencia < 0) newErrors.aniosExperiencia = 'Los años de experiencia deben ser >= 0';
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
+  // Formatear RUT mientras el usuario escribe
+  useEffect(() => {
+    if (rutValue && rutValue.length > 1) {
+      const formatted = formatRUT(rutValue);
+      if (formatted !== rutValue) {
+        setValue('rut', formatted, { shouldValidate: true });
+      }
     }
+  }, [rutValue, setValue]);
 
-    onSubmit(formData);
-    setFormData({
-      nombre: '',
-      rut: '',
-      correoElectronico: '',
-      fechaContratacion: '',
-      aniosExperiencia: 0,
-    });
-    setErrors({});
+  const onSubmitForm = (data: DeveloperFormData) => {
+    onSubmit(data);
+    reset();
     onClose();
   };
 
-  const handleInputChange = (field: keyof DeveloperFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -94,22 +94,23 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmitForm)} className="p-6 space-y-4">
           <div>
             <label htmlFor="nombre" className="block text-sm font-medium text-slate-700 mb-2">
               Nombre completo *
             </label>
             <input
+              {...register('nombre')}
               type="text"
               id="nombre"
-              value={formData.nombre}
-              onChange={(e) => handleInputChange('nombre', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.nombre ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.nombre ? 'border-red-500' : ''
               }`}
-              placeholder="Ej: Juan Pérez"
+              placeholder="Ej: Juan Pérez González"
             />
-            {errors.nombre && <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>}
+            {errors.nombre && (
+              <p className="text-red-600 text-sm mt-1">{errors.nombre.message}</p>
+            )}
           </div>
 
           <div>
@@ -117,16 +118,18 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
               RUT *
             </label>
             <input
+              {...register('rut')}
               type="text"
               id="rut"
-              value={formData.rut}
-              onChange={(e) => handleInputChange('rut', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.rut ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.rut ? 'border-red-500' : ''
               }`}
-              placeholder="Ej: 12345678-9"
+              placeholder="Ej: 12.345.678-9"
+              maxLength={12}
             />
-            {errors.rut && <p className="mt-1 text-sm text-red-600">{errors.rut}</p>}
+            {errors.rut && (
+              <p className="text-red-600 text-sm mt-1">{errors.rut.message}</p>
+            )}
           </div>
 
           <div>
@@ -134,16 +137,17 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
               Correo electrónico *
             </label>
             <input
+              {...register('correoElectronico')}
               type="email"
               id="correoElectronico"
-              value={formData.correoElectronico}
-              onChange={(e) => handleInputChange('correoElectronico', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.correoElectronico ? 'border-red-300' : 'border-slate-300'
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.correoElectronico ? 'border-red-500' : ''
               }`}
-              placeholder="Ej: juan@email.com"
+              placeholder="ejemplo@correo.com"
             />
-            {errors.correoElectronico && <p className="mt-1 text-sm text-red-600">{errors.correoElectronico}</p>}
+            {errors.correoElectronico && (
+              <p className="text-red-600 text-sm mt-1">{errors.correoElectronico.message}</p>
+            )}
           </div>
 
           <div>
@@ -151,15 +155,17 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
               Fecha de contratación *
             </label>
             <input
+              {...register('fechaContratacion')}
               type="date"
               id="fechaContratacion"
-              value={formData.fechaContratacion}
-              onChange={(e) => handleInputChange('fechaContratacion', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.fechaContratacion ? 'border-red-300' : 'border-slate-300'
+              max={new Date().toISOString().split('T')[0]}
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.fechaContratacion ? 'border-red-500' : ''
               }`}
             />
-            {errors.fechaContratacion && <p className="mt-1 text-sm text-red-600">{errors.fechaContratacion}</p>}
+            {errors.fechaContratacion && (
+              <p className="text-red-600 text-sm mt-1">{errors.fechaContratacion.message}</p>
+            )}
           </div>
 
           <div>
@@ -167,32 +173,35 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialD
               Años de experiencia *
             </label>
             <input
+              {...register('aniosExperiencia', { valueAsNumber: true })}
               type="number"
               id="aniosExperiencia"
               min="0"
-              value={formData.aniosExperiencia}
-              onChange={(e) => handleInputChange('aniosExperiencia', parseInt(e.target.value) || 0)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                errors.aniosExperiencia ? 'border-red-300' : 'border-slate-300'
+              max="50"
+              className={`w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.aniosExperiencia ? 'border-red-500' : ''
               }`}
               placeholder="Ej: 5"
             />
-            {errors.aniosExperiencia && <p className="mt-1 text-sm text-red-600">{errors.aniosExperiencia}</p>}
+            {errors.aniosExperiencia && (
+              <p className="text-red-600 text-sm mt-1">{errors.aniosExperiencia.message}</p>
+            )}
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              {title ?? 'Crear Desarrollador'}
+              {isSubmitting ? 'Guardando...' : initialData ? 'Actualizar' : 'Crear'}
             </button>
           </div>
         </form>
