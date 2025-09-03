@@ -1,10 +1,12 @@
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface DeveloperFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: DeveloperFormData) => void;
+  initialData?: DeveloperFormData | null;
+  title?: string;
 }
 
 export interface DeveloperFormData {
@@ -15,7 +17,7 @@ export interface DeveloperFormData {
   aniosExperiencia: number;
 }
 
-export default function DeveloperFormModal({ isOpen, onClose, onSubmit }: DeveloperFormModalProps) {
+export default function DeveloperFormModal({ isOpen, onClose, onSubmit, initialData = null, title }: DeveloperFormModalProps) {
   const [formData, setFormData] = useState<DeveloperFormData>({
     nombre: '',
     rut: '',
@@ -23,6 +25,21 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit }: Develo
     fechaContratacion: '',
     aniosExperiencia: 0,
   });
+
+  // Sincronizar cuando cambia initialData (para modo edición)
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({
+        nombre: '',
+        rut: '',
+        correoElectronico: '',
+        fechaContratacion: '',
+        aniosExperiencia: 0,
+      });
+    }
+  }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Partial<Record<keyof DeveloperFormData, string>>>({});
 
@@ -68,7 +85,7 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit }: Develo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900">Nuevo Desarrollador</h2>
+          <h2 className="text-xl font-semibold text-slate-900">{title ?? 'Nuevo Desarrollador'}</h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -175,7 +192,7 @@ export default function DeveloperFormModal({ isOpen, onClose, onSubmit }: Develo
               type="submit"
               className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
             >
-              Crear Desarrollador
+              {title ?? 'Crear Desarrollador'}
             </button>
           </div>
         </form>

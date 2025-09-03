@@ -2,10 +2,13 @@ import { Plus, Search, Eye, Edit, Trash2, RefreshCw, Users } from 'lucide-react'
 import type { Project } from '@/features/projects/schemas';
 import { useState } from 'react';
 import ProjectFormModal, { type ProjectFormData } from '@/components/ProjectFormModal';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProjectsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   
   // Datos de prueba
   const [mockProjects, setMockProjects] = useState<Project[]>([
@@ -75,17 +78,49 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleCreateProject = (formData: ProjectFormData) => {
-    const newProject: Project = {
-      codigoProyecto: Math.max(...mockProjects.map(p => p.codigoProyecto)) + 1,
-      ...formData,
-      fechaInicio: formData.fechaInicio + 'T00:00:00',
-      fechaTermino: formData.fechaTermino + 'T00:00:00',
-      registroActivo: true,
-    };
+  const handleCreateOrUpdateProject = (formData: ProjectFormData) => {
+    if (editingProject) {
+      // Actualizar existente
+      setMockProjects(prev => prev.map(p => p.codigoProyecto === editingProject.codigoProyecto
+        ? { ...p, ...formData, fechaInicio: formData.fechaInicio + 'T00:00:00', fechaTermino: formData.fechaTermino + 'T00:00:00' }
+        : p
+      ));
+      setEditingProject(null);
+      alert('¡Proyecto actualizado exitosamente!');
+    } else {
+      // Crear nuevo
+      const nextId = mockProjects.length ? Math.max(...mockProjects.map(p => p.codigoProyecto)) + 1 : 1;
+      const newProject: Project = {
+        codigoProyecto: nextId,
+        ...formData,
+        fechaInicio: formData.fechaInicio + 'T00:00:00',
+        fechaTermino: formData.fechaTermino + 'T00:00:00',
+        registroActivo: true,
+      };
 
-    setMockProjects(prev => [...prev, newProject]);
-    alert('¡Proyecto creado exitosamente!');
+      setMockProjects(prev => [...prev, newProject]);
+      alert('¡Proyecto creado exitosamente!');
+    }
+
+    setIsModalOpen(false);
+  };
+
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setIsModalOpen(true);
+  };
+
+  const handleToggleActive = (id: number) => {
+    const proj = mockProjects.find(p => p.codigoProyecto === id);
+    if (!proj) return;
+    const confirmMsg = proj.registroActivo ? '¿Eliminar (soft delete) el proyecto?' : '¿Reactivar el proyecto?';
+    if (!window.confirm(confirmMsg)) return;
+
+    setMockProjects(prev => prev.map(p => p.codigoProyecto === id ? { ...p, registroActivo: !p.registroActivo } : p));
+  };
+
+  const handleView = (id: number) => {
+    navigate(`/projects/${id}`);
   };
 
   return (
@@ -99,7 +134,7 @@ export default function ProjectsPage() {
           </p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditingProject(null); setIsModalOpen(true); }}
           className="inline-flex items-center px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -204,13 +239,13 @@ export default function ProjectsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+                        <button onClick={() => handleView(project.codigoProyecto)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+                        <button onClick={() => handleEditClick(project)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className={`p-2 rounded-full hover:bg-slate-100 ${
+                        <button onClick={() => handleToggleActive(project.codigoProyecto)} className={`p-2 rounded-full hover:bg-slate-100 ${
                           project.registroActivo 
                             ? 'text-red-400 hover:text-red-600' 
                             : 'text-green-400 hover:text-green-600'
@@ -234,8 +269,14 @@ export default function ProjectsPage() {
       {/* Modal */}
       <ProjectFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateProject}
+        onClose={() => { setIsModalOpen(false); setEditingProject(null); }}
+        onSubmit={handleCreateOrUpdateProject}
+        initialData={editingProject ? {
+          nombre: editingProject.nombre,
+          fechaInicio: editingProject.fechaInicio.replace('T00:00:00', ''),
+          fechaTermino: editingProject.fechaTermino.replace('T00:00:00', ''),
+        } : null}
+        title={editingProject ? 'Editar Proyecto' : undefined}
       />
     </div>
   );

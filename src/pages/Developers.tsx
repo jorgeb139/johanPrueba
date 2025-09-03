@@ -3,10 +3,13 @@ import type { Developer } from '@/features/developers/schemas';
 import { useState } from 'react';
 import { formatRUT } from '@/lib/rut';
 import DeveloperFormModal, { type DeveloperFormData } from '@/components/DeveloperFormModal';
+import { useNavigate } from 'react-router-dom';
 
 export default function DevelopersPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDeveloper, setEditingDeveloper] = useState<Developer | null>(null);
   
   // Datos de prueba
   const [mockDevelopers, setMockDevelopers] = useState<Developer[]>([
@@ -56,16 +59,48 @@ export default function DevelopersPage() {
     });
   };
 
-  const handleCreateDeveloper = (formData: DeveloperFormData) => {
-    const newDeveloper: Developer = {
-      codigoDesarrollador: Math.max(...mockDevelopers.map(d => d.codigoDesarrollador)) + 1,
-      ...formData,
-      fechaContratacion: formData.fechaContratacion + 'T00:00:00',
-      registroActivo: true,
-    };
+  const handleSaveDeveloper = (formData: DeveloperFormData) => {
+    if (editingDeveloper) {
+      // Editar existente
+      setMockDevelopers(prev => prev.map(d => d.codigoDesarrollador === editingDeveloper.codigoDesarrollador
+        ? { ...d, ...formData, fechaContratacion: formData.fechaContratacion + 'T00:00:00' }
+        : d
+      ));
+      setEditingDeveloper(null);
+      alert('¡Desarrollador actualizado exitosamente!');
+    } else {
+      // Crear nuevo
+      const nextId = mockDevelopers.length ? Math.max(...mockDevelopers.map(d => d.codigoDesarrollador)) + 1 : 1;
+      const newDeveloper: Developer = {
+        codigoDesarrollador: nextId,
+        ...formData,
+        fechaContratacion: formData.fechaContratacion + 'T00:00:00',
+        registroActivo: true,
+      };
 
-    setMockDevelopers(prev => [...prev, newDeveloper]);
-    alert('¡Desarrollador creado exitosamente!');
+      setMockDevelopers(prev => [...prev, newDeveloper]);
+      alert('¡Desarrollador creado exitosamente!');
+    }
+
+    setIsModalOpen(false);
+  };
+
+  const handleEditClick = (dev: Developer) => {
+    setEditingDeveloper(dev);
+    setIsModalOpen(true);
+  };
+
+  const handleToggleActive = (id: number) => {
+    const dev = mockDevelopers.find(d => d.codigoDesarrollador === id);
+    if (!dev) return;
+    const confirmMsg = dev.registroActivo ? '¿Eliminar (activar soft) al desarrollador?' : '¿Reactivar al desarrollador?';
+    if (!window.confirm(confirmMsg)) return;
+
+    setMockDevelopers(prev => prev.map(d => d.codigoDesarrollador === id ? { ...d, registroActivo: !d.registroActivo } : d));
+  };
+
+  const handleView = (id: number) => {
+    navigate(`/developers/${id}`);
   };
 
   return (
@@ -79,7 +114,7 @@ export default function DevelopersPage() {
           </p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditingDeveloper(null); setIsModalOpen(true); }}
           className="inline-flex items-center px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -184,13 +219,13 @@ export default function DevelopersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     <div className="flex items-center space-x-2">
-                      <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+                      <button onClick={() => handleView(developer.codigoDesarrollador)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+                      <button onClick={() => handleEditClick(developer)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className={`p-2 rounded-full hover:bg-slate-100 ${
+                      <button onClick={() => handleToggleActive(developer.codigoDesarrollador)} className={`p-2 rounded-full hover:bg-slate-100 ${
                         developer.registroActivo 
                           ? 'text-red-400 hover:text-red-600' 
                           : 'text-green-400 hover:text-green-600'
@@ -213,8 +248,16 @@ export default function DevelopersPage() {
       {/* Modal */}
       <DeveloperFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateDeveloper}
+        onClose={() => { setIsModalOpen(false); setEditingDeveloper(null); }}
+        onSubmit={handleSaveDeveloper}
+        initialData={editingDeveloper ? {
+          nombre: editingDeveloper.nombre,
+          rut: editingDeveloper.rut,
+          correoElectronico: editingDeveloper.correoElectronico,
+          fechaContratacion: editingDeveloper.fechaContratacion.replace('T00:00:00', ''),
+          aniosExperiencia: editingDeveloper.aniosExperiencia,
+        } : null}
+        title={editingDeveloper ? 'Editar Desarrollador' : undefined}
       />
     </div>
   );

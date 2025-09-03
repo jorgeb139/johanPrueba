@@ -1,10 +1,12 @@
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ProjectFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: ProjectFormData) => void;
+  initialData?: ProjectFormData | null;
+  title?: string;
 }
 
 export interface ProjectFormData {
@@ -13,12 +15,21 @@ export interface ProjectFormData {
   fechaTermino: string;
 }
 
-export default function ProjectFormModal({ isOpen, onClose, onSubmit }: ProjectFormModalProps) {
+export default function ProjectFormModal({ isOpen, onClose, onSubmit, initialData = null, title }: ProjectFormModalProps) {
   const [formData, setFormData] = useState<ProjectFormData>({
     nombre: '',
     fechaInicio: '',
     fechaTermino: '',
   });
+
+  // Sincronizar cuando se abre el modal en modo edición
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({ nombre: '', fechaInicio: '', fechaTermino: '' });
+    }
+  }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormData, string>>>({});
 
@@ -47,11 +58,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit }: ProjectF
     }
 
     onSubmit(formData);
-    setFormData({
-      nombre: '',
-      fechaInicio: '',
-      fechaTermino: '',
-    });
+    setFormData({ nombre: '', fechaInicio: '', fechaTermino: '' });
     setErrors({});
     onClose();
   };
@@ -67,7 +74,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit }: ProjectF
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900">Nuevo Proyecto</h2>
+          <h2 className="text-xl font-semibold text-slate-900">{title ?? 'Nuevo Proyecto'}</h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -139,7 +146,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit }: ProjectF
               type="submit"
               className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
             >
-              Crear Proyecto
+              {title ?? 'Crear Proyecto'}
             </button>
           </div>
         </form>
