@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { formatRUT } from '@/lib/rut';
 import DeveloperFormModal, { type DeveloperFormData } from '@/components/DeveloperFormModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '@/hooks/useToast';
 import { getDevelopers, saveDevelopers } from '@/lib/storage';
 
@@ -167,8 +167,9 @@ export default function DevelopersPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        {/* Vista de tabla para pantallas muy grandes */}
+        <div className="hidden xl:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -247,6 +248,79 @@ export default function DevelopersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Vista de cards para pantallas pequeñas y medianas */}
+        <div className="xl:hidden">
+          {filteredDevelopers.map((developer) => (
+            <div key={developer.codigoDesarrollador} className="border-b border-slate-200 last:border-b-0 p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-medium text-slate-900">{developer.nombre}</h3>
+                  <p className="text-sm text-slate-600">{developer.correoElectronico}</p>
+                </div>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  developer.registroActivo 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {developer.registroActivo ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                <div>
+                  <span className="text-slate-500">RUT:</span>
+                  <span className="ml-1 font-medium">{formatRUT(developer.rut)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Experiencia:</span>
+                  <span className="ml-1 font-medium">{developer.aniosExperiencia} años</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500">Contratación:</span>
+                  <span className="ml-1 font-medium">{formatDate(developer.fechaContratacion)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Link
+                  to={`/developers/${developer.codigoDesarrollador}`}
+                  className="inline-flex items-center px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded hover:bg-slate-200"
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  Ver
+                </Link>
+                <button
+                  onClick={() => { setEditingDeveloper(developer); setIsModalOpen(true); }}
+                  className="inline-flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar
+                </button>
+                <button
+                  onClick={() => handleToggleActive(developer.codigoDesarrollador)}
+                  className={`inline-flex items-center px-3 py-1 text-sm rounded ${
+                    developer.registroActivo
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                >
+                  {developer.registroActivo ? (
+                    <>
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Desactivar
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Reactivar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

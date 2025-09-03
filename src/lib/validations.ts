@@ -42,7 +42,18 @@ export const developerSchema = z.object({
     .string()
     .min(1, 'El correo electrónico es requerido')
     .max(100, 'El correo no puede exceder 100 caracteres')
-    .email('Debe ser un correo electrónico válido'),
+    .email('Debe ser un correo electrónico válido')
+    .refine((email) => {
+      // Validación adicional para formato de correo más estricto
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      return emailRegex.test(email);
+    }, 'El formato del correo electrónico no es válido')
+    .refine((email) => {
+      // No permitir dominios temporales conocidos
+      const tempDomains = ['tempmail.org', '10minutemail.com', 'guerrillamail.com'];
+      const domain = email.split('@')[1]?.toLowerCase();
+      return !tempDomains.includes(domain);
+    }, 'No se permiten correos de dominios temporales'),
   
   fechaContratacion: z
     .string()

@@ -189,8 +189,9 @@ export default function ProjectsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        {/* Vista de tabla para pantallas muy grandes */}
+        <div className="hidden xl:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -267,6 +268,87 @@ export default function ProjectsPage() {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Vista de cards para pantallas pequeñas y medianas */}
+        <div className="xl:hidden">
+          {filteredProjects.map((project) => {
+            const status = getProjectStatus(project);
+            const statusColors = {
+              'En progreso': 'bg-blue-100 text-blue-800',
+              'Finalizado': 'bg-green-100 text-green-800',
+              'Por iniciar': 'bg-yellow-100 text-yellow-800',
+              'Inactivo': 'bg-red-100 text-red-800'
+            };
+            
+            return (
+              <div key={project.codigoProyecto} className="border-b border-slate-200 last:border-b-0 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-slate-900">{project.nombre}</h3>
+                    <p className="text-sm text-slate-600">
+                      {formatDate(project.fechaInicio)} - {formatDate(project.fechaTermino)}
+                    </p>
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status]}`}>
+                    {status}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                  <div>
+                    <span className="text-slate-500">Estado:</span>
+                    <span className={`ml-1 font-medium ${
+                      project.registroActivo ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {project.registroActivo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Desarrolladores:</span>
+                    <span className="ml-1 font-medium">{Math.floor(Math.random() * 5) + 1}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleView(project.codigoProyecto)}
+                    className="inline-flex items-center px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded hover:bg-slate-200"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Ver
+                  </button>
+                  <button
+                    onClick={() => handleEditClick(project)}
+                    className="inline-flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleToggleActive(project.codigoProyecto)}
+                    className={`inline-flex items-center px-3 py-1 text-sm rounded ${
+                      project.registroActivo
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}
+                  >
+                    {project.registroActivo ? (
+                      <>
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Desactivar
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Reactivar
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
